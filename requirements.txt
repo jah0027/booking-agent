@@ -15,8 +15,9 @@ postgrest==0.13.2
 openai==2.14.0
 google-generativeai==0.3.2  # For Gemini (optional)
 
-# Agent Framework (will add LangGraph later after testing basic API)
-# langgraph - to be added once we test basic functionality  
+
+# Agent Framework
+langgraph==0.0.38
 # langchain - to be added once we test basic functionality
 # langchain-core - to be added once we test basic functionality
 
