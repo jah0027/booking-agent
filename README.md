@@ -1,3 +1,27 @@
+
+This Python agent is deployed on [Render](https://render.com/):
+
+1. Push your code to GitHub.
+2. Create a new Web Service on Render and connect your repository.
+3. Set the build and start commands:
+   - **Build Command:** `pip install -r requirements.txt`
+   - **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port 10000` (or your chosen port)
+4. Add required environment variables in the Render dashboard (see `.env.example`).
+5. Render will automatically build and deploy your service.
+
+**Notes:**
+
+For more details, see [Render's documentation](https://render.com/docs/deploy-python).
+# Automated Email Replies
+
+**New:** The agent now automatically replies to inbound emails received via the Resend webhook. When an email is sent to your band address, the backend will process it, generate a response using the AI agent, and send a reply via Resend.
+
+**To enable this feature:**
+- Make sure your deployment on Render is up to date with the latest code.
+- Confirm your Resend webhook is pointed at your Render deployment's `/api/v1/webhooks/email` endpoint.
+- All required environment variables for Resend and webhook secrets must be set in Render.
+
+After deployment, test by sending an email to your band address and confirming you receive an automated reply.
 # AI Booking Agent - Python Service
 
 Python-based AI agent for coordinating band bookings.
