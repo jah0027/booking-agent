@@ -8,6 +8,7 @@ email-validator==2.1.0
 
 # Database
 supabase==2.3.4
+gotrue==2.5.5
 postgrest==0.13.2
 
 # AI/LLM
