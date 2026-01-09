@@ -27,9 +27,9 @@ def verify_svix_signature(payload: bytes, signature: str, secret: str) -> bool:
             if part.startswith('v1,'):
                 sig_candidates.append(part[3:])
         logger.info("Parsed v1 signatures", candidates=sig_candidates)
-        decoded_secret = base64.b64decode(secret)
+        # Use the secret as a UTF-8 string (not base64-decoded)
         computed = hmac.new(
-            key=decoded_secret,
+            key=secret.encode("utf-8"),
             msg=payload,
             digestmod=hashlib.sha256
         ).digest()
