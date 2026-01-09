@@ -22,7 +22,7 @@ def verify_svix_signature(payload: bytes, signature: str, secret: str) -> bool:
     try:
         wh = Webhook(secret)
         # The svix library expects the payload as bytes and the signature header as a string
-        wh.verify(payload, signature)
+        wh.verify(payload, {"svix-signature": signature})
         logger.info("Signature verified using svix-python library")
         return True
     except WebhookVerificationError as e:
