@@ -308,10 +308,16 @@ class BookingAgent:
                     )
                 elif isinstance(message, HumanMessage):
                     # This is the user's message
+                    # Lookup or create contact for sender
+                    contact = await supabase_client.get_contact_by_email(state["sender_email"])
+                    if not contact:
+                        contact_id = await supabase_client.create_contact(state["sender_email"], state["sender_name"] or "")
+                    else:
+                        contact_id = contact["id"]
                     await supabase_client.create_message(
                         conversation_id=state["conversation_id"],
                         sender_type=state["sender_type"],
-                        sender_id=state["sender_email"],
+                        sender_id=contact_id,
                         sender_name=state["sender_name"],
                         content=message.content,
                         role="user"
