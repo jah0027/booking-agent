@@ -89,7 +89,14 @@ class EmailService:
             # Resend supports tags for categorization (must be ASCII alphanumeric, underscore, dash only)
             import re
             def sanitize_tag(s):
-                return re.sub(r"[^A-Za-z0-9_-]", "_", str(s))
+                if s is None:
+                    return "none"
+                s = str(s)
+                # Remove non-ASCII and replace with _
+                s = re.sub(r"[^A-Za-z0-9_-]", "_", s)
+                # Remove leading/trailing underscores and collapse repeats
+                s = re.sub(r'_+', '_', s).strip('_')
+                return s or "none"
             if metadata:
                 params["tags"] = [
                     {"name": sanitize_tag(key), "value": sanitize_tag(value)}
