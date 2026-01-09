@@ -1,8 +1,9 @@
+
 # Web Framework
-fastapi==0.115.0
+fastapi==0.95.2
 uvicorn[standard]==0.32.0
-pydantic==2.10.0
-pydantic-settings==2.6.0
+pydantic==1.10.13
+# pydantic-settings removed for compatibility; use python-dotenv or os.environ for config
 python-multipart==0.0.6
 email-validator==2.1.0
 
@@ -17,9 +18,7 @@ google-generativeai==0.3.2  # For Gemini (optional)
 
 
 # Agent Framework
-langgraph==0.0.38
-# langchain - to be added once we test basic functionality
-# langchain-core - to be added once we test basic functionality
+# (see Web Framework section)
 
 # Background Jobs
 celery==5.3.6
