@@ -4,7 +4,9 @@
 import os
 import resend
 import structlog
+
 from email.utils import parseaddr
+from datetime import datetime
 
 from typing import Optional, List, Dict, Any
 from app.config import settings
