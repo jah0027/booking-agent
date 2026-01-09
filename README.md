@@ -1,3 +1,16 @@
+# Resend Webhook Signature Verification
+
+**Important:** When verifying Resend (Svix) webhook signatures, use the webhook "Signing Secret" exactly as shown in the Resend dashboard. Do **not** base64-decode this value. The secret should be used as a UTF-8 string when computing the HMAC signature.
+
+**Troubleshooting Signature Validation:**
+- The secret should look like `whsec_...` and must match exactly (no extra spaces or characters).
+- In your backend, the signature verification function should use `secret.encode('utf-8')` as the HMAC key.
+- If you see errors like `Invalid base64-encoded string`, you are likely trying to base64-decode the secret—**this is incorrect** for Resend.
+- After updating the secret in your Render environment, always redeploy your service.
+- The signature header (`Svix-Signature`) may contain multiple signatures separated by spaces or semicolons; your code should check all `v1,` signatures.
+
+For more details, see the [Resend webhook docs](https://resend.com/docs/webhooks#verifying-webhooks).
+
 
 This Python agent is deployed on [Render](https://render.com/):
 

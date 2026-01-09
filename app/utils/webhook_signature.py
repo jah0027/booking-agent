@@ -1,8 +1,7 @@
 
-import hmac
-import hashlib
-import base64
+
 import structlog
+from svix.webhooks import Webhook, WebhookVerificationError
 from app.config import settings
 
 
@@ -21,26 +20,13 @@ def verify_svix_signature(payload: bytes, signature: str, secret: str) -> bool:
         logger.error("Missing signature or secret", signature=signature, secret=secret)
         return False
     try:
-        # Svix signatures can be separated by semicolons or spaces
-        sig_candidates = []
-        for part in signature.replace(';', ' ').split():
-            if part.startswith('v1,'):
-                sig_candidates.append(part[3:])
-        logger.info("Parsed v1 signatures", candidates=sig_candidates)
-        # Use the secret as a UTF-8 string (not base64-decoded)
-        computed = hmac.new(
-            key=secret.encode("utf-8"),
-            msg=payload,
-            digestmod=hashlib.sha256
-        ).digest()
-        computed_b64 = base64.b64encode(computed).decode()
-        logger.info("Computed signature", computed_signature=computed_b64)
-        for sig in sig_candidates:
-            logger.info("Comparing signatures", provided=sig, computed=computed_b64)
-            if hmac.compare_digest(sig, computed_b64):
-                logger.info("Signature match found")
-                return True
-        logger.error("No matching signature found", provided=sig_candidates, computed=computed_b64)
+        wh = Webhook(secret)
+        # The svix library expects the payload as bytes and the signature header as a string
+        wh.verify(payload, signature)
+        logger.info("Signature verified using svix-python library")
+        return True
+    except WebhookVerificationError as e:
+        logger.error("Svix signature verification failed", error=str(e))
         return False
     except Exception as e:
         logger.error("Exception during signature verification", error=str(e))
