@@ -46,7 +46,7 @@ async def email_webhook(request: Request, svix_signature: str = Header(None, ali
             "svix_signature_value": svix_signature,
             "secret_value": secret
         })
-        if not verify_svix_signature(payload_bytes, svix_signature, secret):
+        if not verify_svix_signature(payload_bytes, dict(request.headers), secret):
             logger.error("webhook_signature_invalid")
             raise HTTPException(status_code=401, detail="Invalid webhook signature")
         logger.info("webhook_signature_verified")

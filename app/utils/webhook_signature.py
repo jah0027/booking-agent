@@ -5,7 +5,7 @@ from svix.webhooks import Webhook, WebhookVerificationError
 from app.config import settings
 
 
-def verify_svix_signature(payload: bytes, signature: str, secret: str) -> bool:
+def verify_svix_signature(payload: bytes, headers: dict, secret: str) -> bool:
     """
     Verify the Svix (Resend) webhook signature.
     Args:
@@ -16,13 +16,12 @@ def verify_svix_signature(payload: bytes, signature: str, secret: str) -> bool:
         True if signature is valid, False otherwise
     """
     logger = structlog.get_logger()
-    if not signature or not secret:
-        logger.error("Missing signature or secret", signature=signature, secret=secret)
+    if not headers or not secret:
+        logger.error("Missing headers or secret", headers=headers, secret=secret)
         return False
     try:
         wh = Webhook(secret)
-        # The svix library expects the payload as bytes and the signature header as a string
-        wh.verify(payload, {"svix-signature": signature})
+        wh.verify(payload, headers)
         logger.info("Signature verified using svix-python library")
         return True
     except WebhookVerificationError as e:
