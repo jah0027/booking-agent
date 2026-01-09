@@ -127,9 +127,14 @@ agent/
 - `POST /api/v1/bookings/inquiry` - Submit booking inquiry
 - `POST /api/v1/webhooks/email` - Email webhook (for inbound email processing)
 
-**Email Triggers:**
+
+**Email Triggers & Conversation Logic:**
 - Outbound: When the chat intent is to check a band member's availability for a specific date, the agent sends an email to the member.
-- Inbound: (Planned) Incoming emails to agent@sickdaywithferris.band will be processed and matched to conversations.
+- Inbound: Incoming emails to agent@sickdaywithferris.band are processed and matched to conversations. The agent uses the following logic:
+   - If the sender is not a band member, the **first message** in a conversation is always treated as a venue inquiry ("venue_inquiry").
+   - For all **follow-up messages** in the same conversation, the agent uses AI intent classification to determine if the message is a negotiation, proposal, follow-up, or other type. This allows the agent to respond contextually to ongoing venue discussions (e.g., event details, negotiation, confirmation, etc.).
+   - Only actual band members (recognized by their email) can trigger the band member availability request flow.
+   - The agent always fills in the correct agent name ("Ferris") and attempts to extract and acknowledge dates from the initial inquiry.
 
 See [API documentation](http://localhost:8000/docs) when running locally.
 
