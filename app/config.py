@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     
     # Security
     api_secret_key: str = "change-me-in-production"
-    webhook_signing_secret: str = "change-me-in-production"
+    webhook_signing_secret: str = ""
     
     # Monitoring
     sentry_dsn: str = ""
