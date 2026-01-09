@@ -87,9 +87,12 @@ class EmailService:
                 params["bcc"] = bcc
             
             # Resend supports tags for categorization (must be ASCII alphanumeric, underscore, dash only)
+            import re
+            def sanitize_tag(s):
+                return re.sub(r"[^A-Za-z0-9_-]", "_", str(s))
             if metadata:
                 params["tags"] = [
-                    {"name": key.replace(" ", "_"), "value": str(value).replace(" ", "_")}
+                    {"name": sanitize_tag(key), "value": sanitize_tag(value)}
                     for key, value in metadata.items()
                 ]
             
