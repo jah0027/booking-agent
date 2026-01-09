@@ -38,12 +38,13 @@ class SupabaseClient:
 
     async def create_contact(self, email: str, name: str = "") -> Optional[str]:
         """Create a new contact and return its ID. Handles missing/partial names."""
-        # If no name, use email prefix as first_name
-        if not name:
+        # If no name or name is None, use email prefix as first_name
+        safe_name = name or ""
+        if not safe_name.strip():
             first_name = email.split('@')[0]
             last_name = ""
         else:
-            parts = name.strip().split()
+            parts = safe_name.strip().split()
             first_name = parts[0] if parts else email.split('@')[0]
             last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
         try:

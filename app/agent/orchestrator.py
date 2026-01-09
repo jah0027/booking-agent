@@ -133,6 +133,17 @@ class BookingAgent:
             state["intent"] = "contract_request"
         else:
             state["intent"] = "general"
+
+        # If sender is not a band member, force venue intent
+        band_member_emails = [
+            "dave@sickdaywithferris.band",
+            "john@sickdaywithferris.band",
+            "mike@sickdaywithferris.band",
+            "sarah@sickdaywithferris.band"
+        ]  # Add all band member emails here
+        sender_email = (state.get("sender_email") or "").lower()
+        if sender_email not in band_member_emails:
+            state["intent"] = "venue_inquiry"
         
         logger.info("Intent classified", intent=state["intent"])
         return state
@@ -194,8 +205,15 @@ class BookingAgent:
         """Handle availability collection from band members"""
         logger.info("Handling availability request", conversation_id=state["conversation_id"])
         
+        # Ensure band_member_name is always filled (use email prefix if missing)
+        sender_name = state.get("sender_name")
+        if not sender_name or not sender_name.strip():
+            sender_email = state.get("sender_email", "")
+            band_member_name = sender_email.split("@")[0] if sender_email else "Band Member"
+        else:
+            band_member_name = sender_name.strip()
         context = {
-            "band_member_name": state.get("sender_name", "Band Member"),
+            "band_member_name": band_member_name,
             "conversation_history": "\n".join([
                 f"{m.__class__.__name__}: {m.content}" for m in state["messages"][-10:]
             ])
