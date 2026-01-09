@@ -14,7 +14,7 @@ router = APIRouter()
 from app.agent.orchestrator import booking_agent
 
 @router.post("/webhooks/email")
-async def email_webhook(request: Request, svix_signature: str = Header(None)):
+async def email_webhook(request: Request, svix_signature: str = Header(None, alias="Svix-Signature")):
     """
     Inbound email webhook (from Resend or SendGrid)
     """
