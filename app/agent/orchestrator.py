@@ -358,11 +358,18 @@ class BookingAgent:
                         contact_id = await supabase_client.create_contact(state["sender_email"], state["sender_name"] or "")
                     else:
                         contact_id = contact["id"]
+                    # Ensure sender_name is always a safe string
+                    if contact:
+                        first_name = contact.get('first_name') or ''
+                        last_name = contact.get('last_name') or ''
+                        safe_sender_name = f"{first_name} {last_name}".strip() or (state["sender_email"].split("@", 1)[0] if state.get("sender_email") else "Unknown")
+                    else:
+                        safe_sender_name = state["sender_name"] or (state["sender_email"].split("@", 1)[0] if state.get("sender_email") else "Unknown")
                     await supabase_client.create_message(
                         conversation_id=state["conversation_id"],
                         sender_type=state["sender_type"],
                         sender_id=contact_id,
-                        sender_name=f"{contact.get('first_name', '')} {contact.get('last_name', '')}".strip() if contact else state["sender_name"],
+                        sender_name=safe_sender_name,
                         content=message.content,
                         role="user"
                     )
