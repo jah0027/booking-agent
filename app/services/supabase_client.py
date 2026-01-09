@@ -13,27 +13,8 @@ logger = structlog.get_logger()
 
 
 class SupabaseClient:
-        async def get_contact_by_email(self, email: str) -> Optional[Dict[str, Any]]:
-            """Get contact by email address"""
-            try:
-                result = self.client.table("contacts").select("*").eq("email", email).execute()
-                return result.data[0] if result.data else None
-            except Exception as e:
-                logger.error("get_contact_by_email_failed", error=str(e), email=email)
-                return None
-
-        async def create_contact(self, email: str, name: str = "") -> Optional[str]:
-            """Create a new contact and return its ID"""
-            try:
-                result = self.client.table("contacts").insert({"email": email, "name": name}).execute()
-                contact_id = result.data[0]["id"] if result.data else None
-                logger.info("contact_created", contact_id=contact_id, email=email)
-                return contact_id
-            except Exception as e:
-                logger.error("create_contact_failed", error=str(e), email=email)
-                return None
     """Wrapper for Supabase client operations"""
-    
+
     def __init__(self):
         # Use synchronous client - service role key bypasses RLS automatically
         self.client: Client = create_client(
@@ -41,13 +22,33 @@ class SupabaseClient:
             settings.supabase_service_key
         )
         logger.info("supabase_client_initialized")
-    
+
     def get_client(self) -> Client:
         """Get Supabase client instance"""
         return self.client
-    
+
+    async def get_contact_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """Get contact by email address"""
+        try:
+            result = self.client.table("contacts").select("*").eq("email", email).execute()
+            return result.data[0] if result.data else None
+        except Exception as e:
+            logger.error("get_contact_by_email_failed", error=str(e), email=email)
+            return None
+
+    async def create_contact(self, email: str, name: str = "") -> Optional[str]:
+        """Create a new contact and return its ID"""
+        try:
+            result = self.client.table("contacts").insert({"email": email, "name": name}).execute()
+            contact_id = result.data[0]["id"] if result.data else None
+            logger.info("contact_created", contact_id=contact_id, email=email)
+            return contact_id
+        except Exception as e:
+            logger.error("create_contact_failed", error=str(e), email=email)
+            return None
+
     # ===== CONVERSATIONS =====
-    
+
     async def create_conversation(
         self,
         channel: str = "email",
