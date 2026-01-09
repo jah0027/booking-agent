@@ -1,8 +1,10 @@
 """Email service for sending and receiving emails via Resend"""
 
+
 import os
 import resend
 import structlog
+from email.utils import parseaddr
 
 from typing import Optional, List, Dict, Any
 from app.config import settings
