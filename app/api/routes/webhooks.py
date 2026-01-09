@@ -19,8 +19,16 @@ async def email_webhook(request: Request, svix_signature: str = Header(None, ali
     Inbound email webhook (from Resend or SendGrid)
     """
     try:
+
         # Get raw JSON payload
         payload_bytes = await request.body()
+        # Log the raw request body for debugging
+        logger.info({"event": f"Raw request body (bytes): {payload_bytes!r}"})
+        try:
+            logger.info({"event": f"Raw request body (utf-8): {payload_bytes.decode('utf-8', errors='replace')}"})
+        except Exception as e:
+            logger.error({"event": f"Error decoding body: {e}"})
+
         payload_str = payload_bytes.decode("utf-8")
         webhook_payload = json.loads(payload_str)
 
