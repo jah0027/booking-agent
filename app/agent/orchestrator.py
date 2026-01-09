@@ -162,16 +162,16 @@ class BookingAgent:
         constraints = await supabase_client.get_booking_constraints()
         state["booking_constraints"] = constraints
         constraints_text = get_booking_constraints_text(constraints)
-        
+
         # Get conversation history
         conversation_history = "\n".join([
             f"{m.__class__.__name__}: {m.content}" for m in state["messages"][-10:]
         ])
-        
-        # Extract requested date from initial message (support more formats)
+
+        # Extract details from last user message
         import re
         last_user_message = state["messages"][-1].content if state["messages"] else ""
-        # Try MM/DD/YYYY, Month Day, YYYY, and simple month/day
+        # Extract date
         date_patterns = [
             r"(\d{1,2}/\d{1,2}/\d{4})",
             r"([A-Za-z]+ \d{1,2}, \d{4})",
@@ -186,16 +186,62 @@ class BookingAgent:
         if not requested_dates:
             requested_dates = "(not specified)"
 
+        # Extract event details
+        def extract_detail(pattern, text, default=None):
+            m = re.search(pattern, text, re.IGNORECASE)
+            return m.group(1).strip() if m else default
+
+        event_type = extract_detail(r"event type[:\s]*([\w\s]+)", last_user_message)
+        if not event_type:
+            event_type = extract_detail(r"(?:for|about|regarding) ([\w\s]+ event)", last_user_message)
+
+        expected_attendance = extract_detail(r"attendance[:\s]*(\d+)", last_user_message)
+        if not expected_attendance:
+            expected_attendance = extract_detail(r"(\d+) (?:guests|people|attendees)", last_user_message)
+
+        payment_offer = extract_detail(r"(?:payment|offer|rate|fee)[:\s]*\$?(\d+[,.]?\d*)", last_user_message)
+
+        pa_available = extract_detail(r"PA system[:\s]*(available|provided|needed|not available)", last_user_message)
+        if not pa_available:
+            pa_available = extract_detail(r"(PA system|sound system) (?:is|will be|can be) ([\w\s]+)", last_user_message)
+
+        load_in_time = extract_detail(r"load[- ]?in[:\s]*([\w\d:]+)", last_user_message)
+
+        # Build context for prompt
         context = {
             "venue_name": state.get("sender_name", "Venue"),
             "requested_dates": requested_dates,
             "band_availability_status": "pending",  # Could be improved with actual lookup
             "booking_constraints": constraints_text,
             "min_notice_days": 14,
-            "conversation_history": conversation_history
+            "conversation_history": conversation_history,
+            "event_type": event_type or "(not specified)",
+            "expected_attendance": expected_attendance or "(not specified)",
+            "payment_offer": payment_offer or "(not specified)",
+            "pa_available": pa_available or "(not specified)",
+            "load_in_time": load_in_time or "(not specified)"
         }
 
-        prompt = format_prompt(VENUE_INQUIRY_RESPONSE_PROMPT, context)
+        # Build a dynamic follow-up string for missing details
+        missing_details = []
+        if context["event_type"] == "(not specified)":
+            missing_details.append("event type")
+        if context["expected_attendance"] == "(not specified)":
+            missing_details.append("expected attendance")
+        if context["payment_offer"] == "(not specified)":
+            missing_details.append("payment offer")
+        if context["pa_available"] == "(not specified)":
+            missing_details.append("PA system availability")
+        if context["load_in_time"] == "(not specified)":
+            missing_details.append("load-in time")
+
+        follow_up = "" if not missing_details else (
+            "To proceed, could you please provide the following details: " + ", ".join(missing_details) + "."
+        )
+
+        # Format prompt with context and follow-up
+        prompt = format_prompt(VENUE_INQUIRY_RESPONSE_PROMPT, context) + ("\n" + follow_up if follow_up else "")
+
         # Convert LangChain messages to LLM service messages
         llm_messages = [LLMMessage(role="system", content=BASE_SYSTEM_PROMPT), LLMMessage(role="system", content=prompt)]
         for msg in state["messages"]:
@@ -211,8 +257,8 @@ class BookingAgent:
         state["messages"] = state["messages"] + [AIMessage(content=patched_content)]
         state["requires_human_approval"] = False
 
-        # Log extracted date and patched content for debugging
-        logger.info("venue_inquiry_response", requested_dates=requested_dates, patched_content=patched_content)
+        # Log extracted details and patched content for debugging
+        logger.info("venue_inquiry_response", requested_dates=requested_dates, event_type=event_type, expected_attendance=expected_attendance, payment_offer=payment_offer, pa_available=pa_available, load_in_time=load_in_time, patched_content=patched_content)
 
         return state
     
