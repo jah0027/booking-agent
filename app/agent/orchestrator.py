@@ -155,13 +155,24 @@ class BookingAgent:
             f"{m.__class__.__name__}: {m.content}" for m in state["messages"][-10:]
         ])
         
+        # Extract requested date from initial message (simple regex for MM/DD/YYYY or similar)
+        import re
+        last_user_message = state["messages"][-1].content if state["messages"] else ""
+        date_match = re.search(r"(\d{1,2}/\d{1,2}/\d{4})", last_user_message)
+        requested_dates = date_match.group(1) if date_match else "(not specified)"
+
         context = {
             "venue_name": state.get("sender_name", "Venue"),
+            "requested_dates": requested_dates,
+            "band_availability_status": "pending",  # Could be improved with actual lookup
             "booking_constraints": constraints_text,
+            "min_notice_days": 14,
             "conversation_history": conversation_history
         }
-        
+
         prompt = format_prompt(VENUE_INQUIRY_RESPONSE_PROMPT, context)
+        # Patch: Always sign as Ferris
+        prompt = prompt.replace("[Your Name]", "Ferris")
         
         # Convert LangChain messages to LLM service messages
         llm_messages = [LLMMessage(role="system", content=BASE_SYSTEM_PROMPT), LLMMessage(role="system", content=prompt)]
@@ -318,7 +329,7 @@ class BookingAgent:
                         conversation_id=state["conversation_id"],
                         sender_type=state["sender_type"],
                         sender_id=contact_id,
-                        sender_name=state["sender_name"],
+                        sender_name=f"{contact.get('first_name', '')} {contact.get('last_name', '')}".strip() if contact else state["sender_name"],
                         content=message.content,
                         role="user"
                     )

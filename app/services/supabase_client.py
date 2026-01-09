@@ -37,11 +37,23 @@ class SupabaseClient:
             return None
 
     async def create_contact(self, email: str, name: str = "") -> Optional[str]:
-        """Create a new contact and return its ID"""
+        """Create a new contact and return its ID. Handles missing/partial names."""
+        # If no name, use email prefix as first_name
+        if not name:
+            first_name = email.split('@')[0]
+            last_name = ""
+        else:
+            parts = name.strip().split()
+            first_name = parts[0] if parts else email.split('@')[0]
+            last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
         try:
-            result = self.client.table("contacts").insert({"email": email, "name": name}).execute()
+            result = self.client.table("contacts").insert({
+                "email": email,
+                "first_name": first_name,
+                "last_name": last_name
+            }).execute()
             contact_id = result.data[0]["id"] if result.data else None
-            logger.info("contact_created", contact_id=contact_id, email=email)
+            logger.info("contact_created", contact_id=contact_id, email=email, first_name=first_name, last_name=last_name)
             return contact_id
         except Exception as e:
             logger.error("create_contact_failed", error=str(e), email=email)

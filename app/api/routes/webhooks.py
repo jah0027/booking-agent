@@ -22,30 +22,11 @@ async def email_webhook(request: Request, svix_signature: str = Header(None, ali
 
         # Get raw JSON payload
         payload_bytes = await request.body()
-        # Log the raw request body for debugging
-        logger.info({"event": f"Raw request body (bytes): {payload_bytes!r}"})
-        try:
-            logger.info({"event": f"Raw request body (utf-8): {payload_bytes.decode('utf-8', errors='replace')}"})
-        except Exception as e:
-            logger.error({"event": f"Error decoding body: {e}"})
-
         payload_str = payload_bytes.decode("utf-8")
         webhook_payload = json.loads(payload_str)
 
         # Verify webhook signature (Svix)
         secret = settings.webhook_signing_secret or settings.email_webhook_secret
-        logger.info(f"Using webhook secret: {secret!r}")
-        logger.info(f"Received Svix-Signature header: {svix_signature!r}")
-        
-        # Debug log types and values before signature verification
-        logger.info({
-            "payload_bytes_type": str(type(payload_bytes)),
-            "svix_signature_type": str(type(svix_signature)),
-            "secret_type": str(type(secret)),
-            "payload_bytes_preview": repr(payload_bytes)[:200],
-            "svix_signature_value": svix_signature,
-            "secret_value": secret
-        })
         if not verify_svix_signature(payload_bytes, dict(request.headers), secret):
             logger.error("webhook_signature_invalid")
             raise HTTPException(status_code=401, detail="Invalid webhook signature")
