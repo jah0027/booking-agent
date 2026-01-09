@@ -29,7 +29,7 @@ redis==5.0.1
 # Email
 resend==0.7.0
 # sendgrid==6.11.0  # Alternative email provider
-svix==1.86.0
+svix==1.84.1
 
 # Date/Time Parsing
 python-dateutil==2.8.2
