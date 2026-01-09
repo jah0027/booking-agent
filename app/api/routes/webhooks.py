@@ -56,15 +56,22 @@ async def email_webhook(request: Request, svix_signature: str = Header(None, ali
 
         # Send reply email if agent generated a response
         if agent_reply and sender_email:
+            # Try to thread the reply using In-Reply-To and References if available
+            in_reply_to = parsed_email.get("message_id")
+            references = parsed_email.get("references")
             await email_service.send_email(
                 to=[sender_email],
                 subject=f"Re: {parsed_email.get('subject', 'Your Inquiry')}",
                 html=agent_reply,
                 text=agent_reply,
                 reply_to=parsed_email.get("to", [settings.email_from_address])[0] if parsed_email.get("to") else settings.email_from_address,
-                metadata={"conversation_id": agent_result.get("conversation_id", "")}
+                metadata={
+                    "conversation_id": agent_result.get("conversation_id", ""),
+                    "in_reply_to": in_reply_to or "",
+                    "references": references or ""
+                }
             )
-            logger.info("agent_reply_sent", to=sender_email)
+            logger.info("agent_reply_sent", to=sender_email, in_reply_to=in_reply_to, references=references)
 
         logger.info("email_webhook_processed", sender=sender_email, subject=parsed_email.get("subject"))
         return {"status": "processed", "parsed": parsed_email, "agent_reply": agent_reply}

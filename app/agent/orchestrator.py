@@ -196,9 +196,6 @@ class BookingAgent:
         }
 
         prompt = format_prompt(VENUE_INQUIRY_RESPONSE_PROMPT, context)
-        # Patch: Always sign as Ferris, fallback for [Your Name] or [YourName]
-        prompt = prompt.replace("[Your Name]", "Ferris").replace("[YourName]", "Ferris")
-        
         # Convert LangChain messages to LLM service messages
         llm_messages = [LLMMessage(role="system", content=BASE_SYSTEM_PROMPT), LLMMessage(role="system", content=prompt)]
         for msg in state["messages"]:
@@ -206,13 +203,17 @@ class BookingAgent:
                 llm_messages.append(LLMMessage(role="user", content=msg.content))
             elif isinstance(msg, AIMessage):
                 llm_messages.append(LLMMessage(role="assistant", content=msg.content))
-        
         response = await llm_service.generate(messages=llm_messages, temperature=0.7, max_tokens=300)
-        
+
+        # Always patch agent signature in the final response
+        patched_content = response.content.replace("[Your Name]", "Ferris").replace("[YourName]", "Ferris")
         # Add assistant response to messages
-        state["messages"] = state["messages"] + [AIMessage(content=response.content)]
+        state["messages"] = state["messages"] + [AIMessage(content=patched_content)]
         state["requires_human_approval"] = False
-        
+
+        # Log extracted date and patched content for debugging
+        logger.info("venue_inquiry_response", requested_dates=requested_dates, patched_content=patched_content)
+
         return state
     
     async def handle_availability_request(self, state: AgentState) -> AgentState:
