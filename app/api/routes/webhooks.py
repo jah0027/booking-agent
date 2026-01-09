@@ -18,6 +18,7 @@ async def email_webhook(request: Request, svix_signature: str = Header(None, ali
     """
     Inbound email webhook (from Resend or SendGrid)
     """
+    logger.info("webhook_request_received")
     try:
 
         # Get raw JSON payload
