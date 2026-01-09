@@ -142,7 +142,9 @@ class BookingAgent:
             "sarah@sickdaywithferris.band"
         ]  # Add all band member emails here
         sender_email = (state.get("sender_email") or "").lower()
-        if sender_email not in band_member_emails:
+        # Only force venue_inquiry for the first message in a conversation
+        is_first_message = len(state.get("messages", [])) <= 1
+        if sender_email not in band_member_emails and is_first_message:
             state["intent"] = "venue_inquiry"
         
         logger.info("Intent classified", intent=state["intent"])
@@ -166,11 +168,23 @@ class BookingAgent:
             f"{m.__class__.__name__}: {m.content}" for m in state["messages"][-10:]
         ])
         
-        # Extract requested date from initial message (simple regex for MM/DD/YYYY or similar)
+        # Extract requested date from initial message (support more formats)
         import re
         last_user_message = state["messages"][-1].content if state["messages"] else ""
-        date_match = re.search(r"(\d{1,2}/\d{1,2}/\d{4})", last_user_message)
-        requested_dates = date_match.group(1) if date_match else "(not specified)"
+        # Try MM/DD/YYYY, Month Day, YYYY, and simple month/day
+        date_patterns = [
+            r"(\d{1,2}/\d{1,2}/\d{4})",
+            r"([A-Za-z]+ \d{1,2}, \d{4})",
+            r"([A-Za-z]+ \d{1,2})"
+        ]
+        requested_dates = None
+        for pat in date_patterns:
+            match = re.search(pat, last_user_message)
+            if match:
+                requested_dates = match.group(1)
+                break
+        if not requested_dates:
+            requested_dates = "(not specified)"
 
         context = {
             "venue_name": state.get("sender_name", "Venue"),
@@ -182,8 +196,8 @@ class BookingAgent:
         }
 
         prompt = format_prompt(VENUE_INQUIRY_RESPONSE_PROMPT, context)
-        # Patch: Always sign as Ferris
-        prompt = prompt.replace("[Your Name]", "Ferris")
+        # Patch: Always sign as Ferris, fallback for [Your Name] or [YourName]
+        prompt = prompt.replace("[Your Name]", "Ferris").replace("[YourName]", "Ferris")
         
         # Convert LangChain messages to LLM service messages
         llm_messages = [LLMMessage(role="system", content=BASE_SYSTEM_PROMPT), LLMMessage(role="system", content=prompt)]
