@@ -168,46 +168,31 @@ class BookingAgent:
             f"{m.__class__.__name__}: {m.content}" for m in state["messages"][-10:]
         ])
 
-        # Extract details from last user message
-        import re
+        # Use LLM to extract event details from the last user message
         last_user_message = state["messages"][-1].content if state["messages"] else ""
-        # Extract date
-        date_patterns = [
-            r"(\d{1,2}/\d{1,2}/\d{4})",
-            r"([A-Za-z]+ \d{1,2}, \d{4})",
-            r"([A-Za-z]+ \d{1,2})"
+        extraction_prompt = (
+            "Extract the following details from the message below. "
+            "Return a JSON object with these keys: requested_dates, event_type, expected_attendance, payment_offer, pa_available, load_in_time. "
+            "If a detail is not specified, use '(not specified)'.\n"
+            "Message: " + last_user_message
+        )
+        extraction_llm_messages = [
+            LLMMessage(role="system", content="You are an expert information extractor for a band booking agent. Always return valid JSON."),
+            LLMMessage(role="user", content=extraction_prompt)
         ]
-        requested_dates = None
-        for pat in date_patterns:
-            match = re.search(pat, last_user_message)
-            if match:
-                requested_dates = match.group(1)
-                break
-        if not requested_dates:
-            requested_dates = "(not specified)"
+        extraction_response = await llm_service.generate(messages=extraction_llm_messages, temperature=0.0, max_tokens=300)
+        import json
+        try:
+            extracted = json.loads(extraction_response.content)
+        except Exception:
+            extracted = {}
+        requested_dates = extracted.get("requested_dates", "(not specified)")
+        event_type = extracted.get("event_type", "(not specified)")
+        expected_attendance = extracted.get("expected_attendance", "(not specified)")
+        payment_offer = extracted.get("payment_offer", "(not specified)")
+        pa_available = extracted.get("pa_available", "(not specified)")
+        load_in_time = extracted.get("load_in_time", "(not specified)")
 
-        # Extract event details
-        def extract_detail(pattern, text, default=None):
-            m = re.search(pattern, text, re.IGNORECASE)
-            return m.group(1).strip() if m else default
-
-        event_type = extract_detail(r"event type[:\s]*([\w\s]+)", last_user_message)
-        if not event_type:
-            event_type = extract_detail(r"(?:for|about|regarding) ([\w\s]+ event)", last_user_message)
-
-        expected_attendance = extract_detail(r"attendance[:\s]*(\d+)", last_user_message)
-        if not expected_attendance:
-            expected_attendance = extract_detail(r"(\d+) (?:guests|people|attendees)", last_user_message)
-
-        payment_offer = extract_detail(r"(?:payment|offer|rate|fee)[:\s]*\$?(\d+[,.]?\d*)", last_user_message)
-
-        pa_available = extract_detail(r"PA system[:\s]*(available|provided|needed|not available)", last_user_message)
-        if not pa_available:
-            pa_available = extract_detail(r"(PA system|sound system) (?:is|will be|can be) ([\w\s]+)", last_user_message)
-
-        load_in_time = extract_detail(r"load[- ]?in[:\s]*([\w\d:]+)", last_user_message)
-
-        # Build context for prompt
         context = {
             "venue_name": state.get("sender_name", "Venue"),
             "requested_dates": requested_dates,
@@ -215,11 +200,11 @@ class BookingAgent:
             "booking_constraints": constraints_text,
             "min_notice_days": 14,
             "conversation_history": conversation_history,
-            "event_type": event_type or "(not specified)",
-            "expected_attendance": expected_attendance or "(not specified)",
-            "payment_offer": payment_offer or "(not specified)",
-            "pa_available": pa_available or "(not specified)",
-            "load_in_time": load_in_time or "(not specified)"
+            "event_type": event_type,
+            "expected_attendance": expected_attendance,
+            "payment_offer": payment_offer,
+            "pa_available": pa_available,
+            "load_in_time": load_in_time
         }
 
         # Build a dynamic follow-up string for missing details
