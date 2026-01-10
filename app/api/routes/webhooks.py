@@ -67,10 +67,10 @@ async def email_webhook(request: Request, svix_signature: str = Header(None, ali
                 text=agent_reply,
                 reply_to=parsed_email.get("to", [settings.email_from_address])[0] if parsed_email.get("to") else settings.email_from_address,
                 metadata={
-                    "conversation_id": agent_result.get("conversation_id", ""),
-                    "in_reply_to": in_reply_to or "",
-                    "references": references or ""
-                }
+                    "conversation_id": agent_result.get("conversation_id", "")
+                },
+                in_reply_to=in_reply_to,
+                references=references
             )
             logger.info("agent_reply_sent", to=sender_email, in_reply_to=in_reply_to, references=references)
 

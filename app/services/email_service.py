@@ -45,7 +45,9 @@ class EmailService:
         reply_to: Optional[str] = None,
         cc: Optional[List[str]] = None,
         bcc: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        in_reply_to: Optional[str] = None,
+        references: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Send an email via Resend
@@ -102,6 +104,13 @@ class EmailService:
                     {"name": sanitize_tag(key), "value": sanitize_tag(value)}
                     for key, value in metadata.items()
                 ]
+            # Add threading headers if provided
+            if in_reply_to:
+                params["headers"] = params.get("headers", {})
+                params["headers"]["In-Reply-To"] = in_reply_to
+            if references:
+                params["headers"] = params.get("headers", {})
+                params["headers"]["References"] = references
             
             logger.info(
                 "Sending email",
