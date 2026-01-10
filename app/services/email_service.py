@@ -363,7 +363,9 @@ class EmailService:
                     "text_content": text_content,
                     "metadata": metadata,
                     "received_at": datetime.utcnow().isoformat(),
-                    "raw_payload": webhook_payload
+                    "raw_payload": webhook_payload,
+                    # Always include message_id for threading
+                    "message_id": data.get("message_id")
                 }
                 
                 logger.info(
