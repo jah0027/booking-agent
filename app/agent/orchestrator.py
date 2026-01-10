@@ -220,32 +220,39 @@ class BookingAgent:
         if context["load_in_time"] == "(not specified)":
             missing_details.append("load-in time")
 
-        follow_up = "" if not missing_details else (
-            "To proceed, could you please provide the following details: " + ", ".join(missing_details) + "."
-        )
-
-        # Format prompt with context and follow-up
-        prompt = format_prompt(VENUE_INQUIRY_RESPONSE_PROMPT, context) + ("\n" + follow_up if follow_up else "")
-
-        # Convert LangChain messages to LLM service messages
-        llm_messages = [LLMMessage(role="system", content=BASE_SYSTEM_PROMPT), LLMMessage(role="system", content=prompt)]
-        for msg in state["messages"]:
-            if isinstance(msg, HumanMessage):
-                llm_messages.append(LLMMessage(role="user", content=msg.content))
-            elif isinstance(msg, AIMessage):
-                llm_messages.append(LLMMessage(role="assistant", content=msg.content))
-        response = await llm_service.generate(messages=llm_messages, temperature=0.7, max_tokens=300)
-
-        # Always patch agent signature in the final response
-        patched_content = response.content.replace("[Your Name]", "Ferris").replace("[YourName]", "Ferris")
-        # Add assistant response to messages
-        state["messages"] = state["messages"] + [AIMessage(content=patched_content)]
-        state["requires_human_approval"] = False
-
-        # Log extracted details and patched content for debugging
-        logger.info("venue_inquiry_response", requested_dates=requested_dates, event_type=event_type, expected_attendance=expected_attendance, payment_offer=payment_offer, pa_available=pa_available, load_in_time=load_in_time, patched_content=patched_content)
-
-        return state
+        if not missing_details:
+            # All details present, transition to availability check
+            # Save details to state for downstream handlers
+            state["event_type"] = event_type
+            state["expected_attendance"] = expected_attendance
+            state["payment_offer"] = payment_offer
+            state["pa_available"] = pa_available
+            state["load_in_time"] = load_in_time
+            state["requested_dates"] = requested_dates
+            # Set intent to availability_request so orchestrator routes to next step
+            state["intent"] = "availability_request"
+            logger.info("venue_inquiry_complete_details", requested_dates=requested_dates, event_type=event_type, expected_attendance=expected_attendance, payment_offer=payment_offer, pa_available=pa_available, load_in_time=load_in_time)
+            return state
+        else:
+            follow_up = "To proceed, could you please provide the following details: " + ", ".join(missing_details) + "."
+            # Format prompt with context and follow-up
+            prompt = format_prompt(VENUE_INQUIRY_RESPONSE_PROMPT, context) + ("\n" + follow_up if follow_up else "")
+            # Convert LangChain messages to LLM service messages
+            llm_messages = [LLMMessage(role="system", content=BASE_SYSTEM_PROMPT), LLMMessage(role="system", content=prompt)]
+            for msg in state["messages"]:
+                if isinstance(msg, HumanMessage):
+                    llm_messages.append(LLMMessage(role="user", content=msg.content))
+                elif isinstance(msg, AIMessage):
+                    llm_messages.append(LLMMessage(role="assistant", content=msg.content))
+            response = await llm_service.generate(messages=llm_messages, temperature=0.7, max_tokens=300)
+            # Always patch agent signature in the final response
+            patched_content = response.content.replace("[Your Name]", "Ferris").replace("[YourName]", "Ferris")
+            # Add assistant response to messages
+            state["messages"] = state["messages"] + [AIMessage(content=patched_content)]
+            state["requires_human_approval"] = False
+            # Log extracted details and patched content for debugging
+            logger.info("venue_inquiry_response", requested_dates=requested_dates, event_type=event_type, expected_attendance=expected_attendance, payment_offer=payment_offer, pa_available=pa_available, load_in_time=load_in_time, patched_content=patched_content)
+            return state
     
     async def handle_availability_request(self, state: AgentState) -> AgentState:
         """Handle availability collection from band members"""
