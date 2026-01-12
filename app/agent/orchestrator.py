@@ -162,80 +162,70 @@ class BookingAgent:
         state["booking_constraints"] = constraints
         constraints_text = get_booking_constraints_text(constraints)
 
-        # Get conversation history
+        # Build conversation history as plain text for LLM context
         conversation_history = "\n".join([
             f"{m.__class__.__name__}: {m.content}" for m in state["messages"][-10:]
         ])
 
-        # Use LLM to extract event details from the last user message
-        last_user_message = state["messages"][-1].content if state["messages"] else ""
+        # Use or initialize event_details in state
+        event_details = state.get("event_details") or {
+            "requested_dates": "(not specified)",
+            "event_type": "(not specified)",
+            "expected_attendance": "(not specified)",
+            "payment_offer": "(not specified)",
+            "pa_available": "(not specified)",
+            "load_in_time": "(not specified)"
+        }
+
+        # Extraction prompt for LLM
         extraction_prompt = (
-            "Extract the following details from the message below. "
+            "Review the following conversation and extract the event details. "
             "Return a JSON object with these keys: requested_dates, event_type, expected_attendance, payment_offer, pa_available, load_in_time. "
-            # Build conversation history as plain text for LLM context
-            conversation_history = "\n".join([
-                f"{m.__class__.__name__}: {m.content}" for m in state["messages"][-10:]
-            ])
-
-            # Use or initialize event_details in state
-            event_details = state.get("event_details") or {
-                "requested_dates": "(not specified)",
-                "event_type": "(not specified)",
-                "expected_attendance": "(not specified)",
-                "payment_offer": "(not specified)",
-                "pa_available": "(not specified)",
-                "load_in_time": "(not specified)"
-            }
-
-            # Extraction prompt for LLM
-            extraction_prompt = (
-                "Review the following conversation and extract the event details. "
-                "Return a JSON object with these keys: requested_dates, event_type, expected_attendance, payment_offer, pa_available, load_in_time. "
-                "If a detail is not specified, use '(not specified)'. Only use information that is explicitly mentioned. "
-                "\n\nConversation:\n" + conversation_history +
-                "\n\nCurrent event details (fill in any missing values):\n" + str(event_details)
-            )
-            extraction_llm_messages = [
-                LLMMessage(role="system", content="You are an expert information extractor for a band booking agent. Always return valid JSON. Do not explain, just output JSON."),
-                LLMMessage(role="user", content=extraction_prompt)
-            ]
-            extraction_response = await llm_service.generate(messages=extraction_llm_messages, temperature=0.0, max_tokens=300)
-            import json
-            logger.info("llm_extraction_raw_output", raw=extraction_response.content)
-            try:
-                extracted = json.loads(extraction_response.content)
-            except Exception:
-                extracted = {}
-            def normalize(val):
-                if not val or val == "(not specified)":
-                    return "(not specified)"
-                import re
-                s = str(val).strip()
-                s_lower = s.lower()
-                if any(word in s_lower for word in ["attendance", "people", "folks", "guests", "attendees", "crowd", "residents"]):
-                    m = re.search(r"(\d+)", s)
-                    return m.group(1) if m else s
-                m = re.search(r"about (\d+)", s_lower)
-                if m:
-                    return m.group(1)
-                if any(word in s_lower for word in ["$", "budget", "pay", "fee", "quote", "pricing", "rate", "discount"]):
-                    m = re.search(r"\$?([\d,]+)", s.replace(",", ""))
-                    return f"${m.group(1)}" if m else s
-                m = re.search(r"(\d+) budg", s_lower)
-                if m:
-                    return f"${m.group(1)}"
-                if s_lower in ["yes", "provided", "available", "have pa", "have a pa", "pa provided", "sound and staging are provided"]:
-                    return "yes"
-                if s_lower in ["no", "not available", "need pa", "no pa", "don't have pa", "do not have pa", "need you to bring one"]:
-                    return "no"
-                if "bring one" in s_lower or "you will need to bring" in s_lower:
-                    return "no"
-                if any(word in s_lower for word in ["hour", "set", "duration", "evening", "afternoon"]):
-                    m = re.search(r"(\d+\.?\d*)", s)
-                    return m.group(1) + " hours" if m else s
-                if any(word in s_lower for word in ["early", "late", "summer", "spring", "fall", "winter", "evening", "afternoon"]):
-                    return s
+            "If a detail is not specified, use '(not specified)'. Only use information that is explicitly mentioned. "
+            "\n\nConversation:\n" + conversation_history +
+            "\n\nCurrent event details (fill in any missing values):\n" + str(event_details)
+        )
+        extraction_llm_messages = [
+            LLMMessage(role="system", content="You are an expert information extractor for a band booking agent. Always return valid JSON. Do not explain, just output JSON."),
+            LLMMessage(role="user", content=extraction_prompt)
+        ]
+        extraction_response = await llm_service.generate(messages=extraction_llm_messages, temperature=0.0, max_tokens=300)
+        import json
+        logger.info("llm_extraction_raw_output", raw=extraction_response.content)
+        try:
+            extracted = json.loads(extraction_response.content)
+        except Exception:
+            extracted = {}
+        def normalize(val):
+            if not val or val == "(not specified)":
+                return "(not specified)"
+            import re
+            s = str(val).strip()
+            s_lower = s.lower()
+            if any(word in s_lower for word in ["attendance", "people", "folks", "guests", "attendees", "crowd", "residents"]):
+                m = re.search(r"(\d+)", s)
+                return m.group(1) if m else s
+            m = re.search(r"about (\d+)", s_lower)
+            if m:
+                return m.group(1)
+            if any(word in s_lower for word in ["$", "budget", "pay", "fee", "quote", "pricing", "rate", "discount"]):
+                m = re.search(r"\$?([\d,]+)", s.replace(",", ""))
+                return f"${m.group(1)}" if m else s
+            m = re.search(r"(\d+) budg", s_lower)
+            if m:
+                return f"${m.group(1)}"
+            if s_lower in ["yes", "provided", "available", "have pa", "have a pa", "pa provided", "sound and staging are provided"]:
+                return "yes"
+            if s_lower in ["no", "not available", "need pa", "no pa", "don't have pa", "do not have pa", "need you to bring one"]:
+                return "no"
+            if "bring one" in s_lower or "you will need to bring" in s_lower:
+                return "no"
+            if any(word in s_lower for word in ["hour", "set", "duration", "evening", "afternoon"]):
+                m = re.search(r"(\d+\.?\d*)", s)
+                return m.group(1) + " hours" if m else s
+            if any(word in s_lower for word in ["early", "late", "summer", "spring", "fall", "winter", "evening", "afternoon"]):
                 return s
+            return s
             # Update event_details with normalized extracted values
             for key in event_details.keys():
                 event_details[key] = normalize(extracted.get(key, event_details[key]))
@@ -296,17 +286,7 @@ class BookingAgent:
                 state["requires_human_approval"] = False
                 logger.info("venue_inquiry_response", **event_details, patched_content=patched_content)
                 return state
-                elif isinstance(msg, AIMessage):
-                    llm_messages.append(LLMMessage(role="assistant", content=msg.content))
-            response = await llm_service.generate(messages=llm_messages, temperature=0.7, max_tokens=300)
-            # Always patch agent signature in the final response
-            patched_content = response.content.replace("[Your Name]", "Ferris").replace("[YourName]", "Ferris")
-            # Add assistant response to messages
-            state["messages"] = state["messages"] + [AIMessage(content=patched_content)]
-            state["requires_human_approval"] = False
-            # Log extracted details and patched content for debugging
-            logger.info("venue_inquiry_response", requested_dates=requested_dates, event_type=event_type, expected_attendance=expected_attendance, payment_offer=payment_offer, pa_available=pa_available, load_in_time=load_in_time, patched_content=patched_content)
-            return state
+            # ...existing code...
     
     async def handle_availability_request(self, state: AgentState) -> AgentState:
         """Handle availability collection from band members"""
