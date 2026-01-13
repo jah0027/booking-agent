@@ -134,11 +134,11 @@ class BookingAgent:
         else:
             state["intent"] = "general"
 
-        # Fetch band member emails from Supabase contacts table
+        # Fetch band member emails from Supabase band_members table
         sender_email = (state.get("sender_email") or "").lower()
         is_first_message = len(state.get("messages", [])) <= 1
         try:
-            band_members = await supabase_client.get_contacts_by_type("band_member")
+            band_members = await supabase_client.get_band_members()
             band_member_emails = [bm["email"].lower() for bm in band_members if bm.get("email")]
         except Exception as e:
             logger.error("Failed to fetch band member emails", error=str(e))
@@ -162,10 +162,9 @@ class BookingAgent:
         state["booking_constraints"] = constraints
         constraints_text = get_booking_constraints_text(constraints)
 
-        # Build conversation history as plain text for LLM context
-        conversation_history = "\n".join([
-            f"{m.__class__.__name__}: {m.content}" for m in state["messages"][-10:]
-        ])
+        # Use the last user message as the extraction target
+        user_messages = [m for m in state["messages"] if isinstance(m, HumanMessage)]
+        last_user_message = user_messages[-1].content if user_messages else ""
 
         # Use or initialize event_details in state
         event_details = state.get("event_details") or {
@@ -177,13 +176,21 @@ class BookingAgent:
             "load_in_time": "(not specified)"
         }
 
-        # Extraction prompt for LLM
+        # Explicit extraction prompt for LLM
         extraction_prompt = (
-            "Review the following conversation and extract the event details. "
-            "Return a JSON object with these keys: requested_dates, event_type, expected_attendance, payment_offer, pa_available, load_in_time. "
-            "If a detail is not specified, use '(not specified)'. Only use information that is explicitly mentioned. "
-            "\n\nConversation:\n" + conversation_history +
-            "\n\nCurrent event details (fill in any missing values):\n" + str(event_details)
+            "Extract the following event details from the message below. "
+            "Return only a valid JSON object with these keys: requested_dates, event_type, expected_attendance, payment_offer, pa_available, load_in_time. "
+            "If a detail is not specified, use '(not specified)'. Do not explain.\n\n"
+            "Message: " + last_user_message + "\n\n"
+            "Example JSON structure:\n"
+            "{\n"
+            "  \"requested_dates\": \"(not specified)\",\n"
+            "  \"event_type\": \"(not specified)\",\n"
+            "  \"expected_attendance\": \"(not specified)\",\n"
+            "  \"payment_offer\": \"(not specified)\",\n"
+            "  \"pa_available\": \"(not specified)\",\n"
+            "  \"load_in_time\": \"(not specified)\"\n"
+            "}\n"
         )
         extraction_llm_messages = [
             LLMMessage(role="system", content="You are an expert information extractor for a band booking agent. Always return valid JSON. Do not explain, just output JSON."),
