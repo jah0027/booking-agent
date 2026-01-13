@@ -196,6 +196,7 @@ class BookingAgent:
             extracted = json.loads(extraction_response.content)
         except Exception:
             extracted = {}
+
         def normalize(val):
             if not val or val == "(not specified)":
                 return "(not specified)"
@@ -226,66 +227,67 @@ class BookingAgent:
             if any(word in s_lower for word in ["early", "late", "summer", "spring", "fall", "winter", "evening", "afternoon"]):
                 return s
             return s
-            # Update event_details with normalized extracted values
-            for key in event_details.keys():
-                event_details[key] = normalize(extracted.get(key, event_details[key]))
-            logger.info("llm_extraction_normalized", **event_details)
-            state["event_details"] = event_details
 
-            # Compose context for follow-up or next step
-            context = {
-                "venue_name": state.get("sender_name", "Venue"),
-                "requested_dates": event_details["requested_dates"],
-                "band_availability_status": "pending",
-                "booking_constraints": constraints_text,
-                "min_notice_days": 14,
-                "conversation_history": conversation_history,
-                "event_type": event_details["event_type"],
-                "expected_attendance": event_details["expected_attendance"],
-                "payment_offer": event_details["payment_offer"],
-                "pa_available": event_details["pa_available"],
-                "load_in_time": event_details["load_in_time"]
-            }
+        # Update event_details with normalized extracted values
+        for key in event_details.keys():
+            event_details[key] = normalize(extracted.get(key, event_details[key]))
+        logger.info("llm_extraction_normalized", **event_details)
+        state["event_details"] = event_details
 
-            # Build a dynamic follow-up string for missing details
-            missing_details = []
-            if event_details["event_type"] == "(not specified)":
-                missing_details.append("event type")
-            if event_details["expected_attendance"] == "(not specified)":
-                missing_details.append("expected attendance")
-            if event_details["payment_offer"] == "(not specified)":
-                missing_details.append("payment offer")
-            if event_details["pa_available"] == "(not specified)":
-                missing_details.append("PA system availability")
-            if event_details["load_in_time"] == "(not specified)":
-                missing_details.append("load-in time")
+        # Compose context for follow-up or next step
+        context = {
+            "venue_name": state.get("sender_name", "Venue"),
+            "requested_dates": event_details["requested_dates"],
+            "band_availability_status": "pending",
+            "booking_constraints": constraints_text,
+            "min_notice_days": 14,
+            "conversation_history": conversation_history,
+            "event_type": event_details["event_type"],
+            "expected_attendance": event_details["expected_attendance"],
+            "payment_offer": event_details["payment_offer"],
+            "pa_available": event_details["pa_available"],
+            "load_in_time": event_details["load_in_time"]
+        }
 
-            if not missing_details:
-                # All details present, transition to availability check
-                state["event_type"] = event_details["event_type"]
-                state["expected_attendance"] = event_details["expected_attendance"]
-                state["payment_offer"] = event_details["payment_offer"]
-                state["pa_available"] = event_details["pa_available"]
-                state["load_in_time"] = event_details["load_in_time"]
-                state["requested_dates"] = event_details["requested_dates"]
-                state["intent"] = "availability_request"
-                logger.info("venue_inquiry_complete_details", **event_details)
-                return state
-            else:
-                follow_up = "To proceed, could you please provide the following details: " + ", ".join(missing_details) + "."
-                prompt = format_prompt(VENUE_INQUIRY_RESPONSE_PROMPT, context) + ("\n" + follow_up if follow_up else "")
-                llm_messages = [LLMMessage(role="system", content=BASE_SYSTEM_PROMPT), LLMMessage(role="system", content=prompt)]
-                for msg in state["messages"]:
-                    if isinstance(msg, HumanMessage):
-                        llm_messages.append(LLMMessage(role="user", content=msg.content))
-                    elif isinstance(msg, AIMessage):
-                        llm_messages.append(LLMMessage(role="assistant", content=msg.content))
-                response = await llm_service.generate(messages=llm_messages, temperature=0.7, max_tokens=300)
-                patched_content = response.content.replace("[Your Name]", "Ferris").replace("[YourName]", "Ferris")
-                state["messages"] = state["messages"] + [AIMessage(content=patched_content)]
-                state["requires_human_approval"] = False
-                logger.info("venue_inquiry_response", **event_details, patched_content=patched_content)
-                return state
+        # Build a dynamic follow-up string for missing details
+        missing_details = []
+        if event_details["event_type"] == "(not specified)":
+            missing_details.append("event type")
+        if event_details["expected_attendance"] == "(not specified)":
+            missing_details.append("expected attendance")
+        if event_details["payment_offer"] == "(not specified)":
+            missing_details.append("payment offer")
+        if event_details["pa_available"] == "(not specified)":
+            missing_details.append("PA system availability")
+        if event_details["load_in_time"] == "(not specified)":
+            missing_details.append("load-in time")
+
+        if not missing_details:
+            # All details present, transition to availability check
+            state["event_type"] = event_details["event_type"]
+            state["expected_attendance"] = event_details["expected_attendance"]
+            state["payment_offer"] = event_details["payment_offer"]
+            state["pa_available"] = event_details["pa_available"]
+            state["load_in_time"] = event_details["load_in_time"]
+            state["requested_dates"] = event_details["requested_dates"]
+            state["intent"] = "availability_request"
+            logger.info("venue_inquiry_complete_details", **event_details)
+            return state
+        else:
+            follow_up = "To proceed, could you please provide the following details: " + ", ".join(missing_details) + "."
+            prompt = format_prompt(VENUE_INQUIRY_RESPONSE_PROMPT, context) + ("\n" + follow_up if follow_up else "")
+            llm_messages = [LLMMessage(role="system", content=BASE_SYSTEM_PROMPT), LLMMessage(role="system", content=prompt)]
+            for msg in state["messages"]:
+                if isinstance(msg, HumanMessage):
+                    llm_messages.append(LLMMessage(role="user", content=msg.content))
+                elif isinstance(msg, AIMessage):
+                    llm_messages.append(LLMMessage(role="assistant", content=msg.content))
+            response = await llm_service.generate(messages=llm_messages, temperature=0.7, max_tokens=300)
+            patched_content = response.content.replace("[Your Name]", "Ferris").replace("[YourName]", "Ferris")
+            state["messages"] = state["messages"] + [AIMessage(content=patched_content)]
+            state["requires_human_approval"] = False
+            logger.info("venue_inquiry_response", **event_details, patched_content=patched_content)
+            return state
             # ...existing code...
     
     async def handle_availability_request(self, state: AgentState) -> AgentState:
