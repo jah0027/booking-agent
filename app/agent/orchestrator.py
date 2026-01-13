@@ -176,6 +176,11 @@ class BookingAgent:
             "load_in_time": "(not specified)"
         }
 
+        # Build conversation_history string for context
+        conversation_history = "\n".join([
+            f"{m.__class__.__name__}: {m.content}" for m in state["messages"][-10:]
+        ])
+
         # Explicit extraction prompt for LLM
         extraction_prompt = (
             "Extract the following event details from the message below. "
