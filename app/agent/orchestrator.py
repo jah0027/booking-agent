@@ -505,10 +505,28 @@ class BookingAgent:
                 ]
             )
             conversation_id = conversation["id"]
-        
+            previous_messages = []
+        else:
+            # Fetch all previous messages for the conversation from the database
+            try:
+                db_messages = await supabase_client.get_messages_by_conversation_id(conversation_id)
+                previous_messages = []
+                for m in db_messages:
+                    role = m.get("role", "user")
+                    content = m.get("content", "")
+                    if role == "assistant":
+                        previous_messages.append(AIMessage(content=content))
+                    elif role == "user":
+                        previous_messages.append(HumanMessage(content=content))
+                    # Optionally handle system messages if needed
+            except Exception as e:
+                logger.error("Failed to fetch previous messages", error=str(e))
+                previous_messages = []
+        # Add the new incoming message
+        all_messages = previous_messages + [HumanMessage(content=message_content)]
         # Initialize state
         initial_state: AgentState = {
-            "messages": [HumanMessage(content=message_content)],
+            "messages": all_messages,
             "conversation_id": conversation_id,
             "sender_email": sender_email,
             "sender_name": sender_name,
@@ -519,14 +537,11 @@ class BookingAgent:
             "requires_human_approval": False,
             "next_action": None
         }
-        
         # Run through the graph
         final_state = await self.graph.ainvoke(initial_state)
-        
         # Get the agent's response (last assistant message)
         assistant_messages = [m for m in final_state["messages"] if isinstance(m, AIMessage)]
         agent_response = assistant_messages[-1].content if assistant_messages else ""
-        
         return {
             "response": agent_response,
             "conversation_id": conversation_id,
