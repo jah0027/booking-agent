@@ -205,7 +205,12 @@ class BookingAgent:
         ]
         extraction_response = await llm_service.generate(messages=extraction_llm_messages, temperature=0.0, max_tokens=300)
         import json
-        logger.info("llm_extraction_raw_output", raw=extraction_response.content)
+        logger.info(
+            "llm_extraction_debug",
+            extraction_prompt=extraction_prompt,
+            conversation_text=conversation_text,
+            raw_llm_output=extraction_response.content
+        )
         try:
             extracted = json.loads(extraction_response.content)
         except Exception:
