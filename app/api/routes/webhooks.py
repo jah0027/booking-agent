@@ -39,8 +39,20 @@ async def email_webhook(request: Request, svix_signature: str = Header(None, ali
         # Route parsed_email to agent for further processing (create/update conversation and get reply)
         sender_email = parsed_email.get("sender_email")
         sender_name = parsed_email.get("sender_name")
-        message_content = parsed_email.get("text_content") or parsed_email.get("html_content") or ""
+        text_content = parsed_email.get("text_content")
+        html_content = parsed_email.get("html_content")
+        message_content = text_content or html_content or ""
         conversation_id = parsed_email["metadata"].get("conversation_id") if parsed_email.get("metadata") else None
+
+        # Log the extracted message body for debugging
+        logger.info(
+            "webhook_message_content_debug",
+            sender_email=sender_email,
+            sender_name=sender_name,
+            text_content=text_content,
+            html_content=html_content,
+            message_content=message_content
+        )
 
         # Determine sender type (simple heuristic: if to band email, treat as venue)
         sender_type = "venue"
