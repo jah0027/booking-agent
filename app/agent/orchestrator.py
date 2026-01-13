@@ -162,9 +162,10 @@ class BookingAgent:
         state["booking_constraints"] = constraints
         constraints_text = get_booking_constraints_text(constraints)
 
-        # Use the last user message as the extraction target
+
+        # Use the full conversation history as the extraction target
         user_messages = [m for m in state["messages"] if isinstance(m, HumanMessage)]
-        last_user_message = user_messages[-1].content if user_messages else ""
+        conversation_text = "\n".join([m.content for m in user_messages])
 
         # Use or initialize event_details in state
         event_details = state.get("event_details") or {
@@ -181,12 +182,13 @@ class BookingAgent:
             f"{m.__class__.__name__}: {m.content}" for m in state["messages"][-10:]
         ])
 
-        # Explicit extraction prompt for LLM
+        # Improved extraction prompt for LLM
         extraction_prompt = (
-            "Extract the following event details from the message below. "
+            "Extract the following event details from the conversation below. "
             "Return only a valid JSON object with these keys: requested_dates, event_type, expected_attendance, payment_offer, pa_available, load_in_time. "
-            "If a detail is not specified, use '(not specified)'. Do not explain.\n\n"
-            "Message: " + last_user_message + "\n\n"
+            "If a detail is not specified, use '(not specified)'. Do not explain. "
+            "Dates may be in any format (e.g., 'July 3 2026', 'next Friday', '2026-07-03'). Scan the entire conversation for relevant details.\n\n"
+            "Conversation: " + conversation_text + "\n\n"
             "Example JSON structure:\n"
             "{\n"
             "  \"requested_dates\": \"(not specified)\",\n"
