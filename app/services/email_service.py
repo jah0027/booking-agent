@@ -345,14 +345,22 @@ class EmailService:
                 html_content = data.get('html')
                 text_content = data.get('text')
                 subject = data.get('subject')
-                
+
+                # Fallback: If both are missing, log full data and try alternate fields
+                if not html_content and not text_content:
+                    logger.warning("Email content missing in webhook payload", data=data)
+                    # Try alternate fields (common: 'body', 'content', etc.)
+                    alt_content = data.get('body') or data.get('content')
+                    if alt_content:
+                        text_content = alt_content
+
                 # Get recipient (our agent email)
                 to_addresses = data.get('to', [])
-                
+
                 # Extract metadata/tags if present
                 tags = data.get('tags', [])
                 metadata = {tag.get('name'): tag.get('value') for tag in tags if isinstance(tag, dict)}
-                
+
                 parsed = {
                     "event_type": "email_received",
                     "sender_email": sender_email,
@@ -367,14 +375,14 @@ class EmailService:
                     # Always include message_id for threading
                     "message_id": data.get("message_id")
                 }
-                
+
                 logger.info(
                     "Processed inbound email webhook",
                     sender=sender_email,
                     subject=subject,
                     has_metadata=bool(metadata)
                 )
-                
+
                 return parsed
             
             elif event_type in ['email.sent', 'email.delivered', 'email.bounced', 'email.complained']:
