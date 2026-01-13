@@ -280,9 +280,7 @@ class BookingAgent:
                         llm_messages.append(LLMMessage(role="user", content=msg.content))
                     elif isinstance(msg, AIMessage):
                         llm_messages.append(LLMMessage(role="assistant", content=msg.content))
-                async def get_llm_response():
-                    return await llm_service.generate(messages=llm_messages, temperature=0.7, max_tokens=300)
-                response = await get_llm_response()
+                response = await llm_service.generate(messages=llm_messages, temperature=0.7, max_tokens=300)
                 patched_content = response.content.replace("[Your Name]", "Ferris").replace("[YourName]", "Ferris")
                 state["messages"] = state["messages"] + [AIMessage(content=patched_content)]
                 state["requires_human_approval"] = False
