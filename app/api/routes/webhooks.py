@@ -38,7 +38,8 @@ async def email_webhook(request: Request, svix_signature: str = Header(None, ali
 
         # If email.received, fetch full email content using Resend REST API
         if parsed_email.get("event_type") == "email_received":
-            email_id = parsed_email.get("message_id") or parsed_email.get("email_id")
+            # Use only the email_id (UUID) for the Resend API call
+            email_id = parsed_email.get("email_id")
             full_email = None
             if email_id:
                 try:
