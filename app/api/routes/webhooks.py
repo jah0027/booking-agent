@@ -36,16 +36,20 @@ async def email_webhook(request: Request, svix_signature: str = Header(None, ali
         # Parse and process the inbound email
         parsed_email = email_service.process_inbound_webhook(webhook_payload)
 
-        # If email.received, fetch full email content using Resend API
+        # If email.received, fetch full email content using Resend REST API
         if parsed_email.get("event_type") == "email_received":
             email_id = parsed_email.get("message_id") or parsed_email.get("email_id")
             full_email = None
             if email_id:
                 try:
-                    # Use resend python client to fetch full email content
-                    import resend
-                    resend.api_key = settings.resend_api_key
-                    full_email = resend.Emails.receiving.get(email_id)
+                    import httpx
+                    api_key = settings.resend_api_key
+                    url = f"https://api.resend.com/emails/{email_id}"
+                    headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.get(url, headers=headers)
+                        resp.raise_for_status()
+                        full_email = resp.json()
                     # full_email should have 'text', 'html', etc.
                     parsed_email["text_content"] = full_email.get("text")
                     parsed_email["html_content"] = full_email.get("html")
