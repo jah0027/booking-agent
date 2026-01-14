@@ -51,6 +51,8 @@ async def email_webhook(request: Request, svix_signature: str = Header(None, ali
                         resp = await client.get(url, headers=headers)
                         resp.raise_for_status()
                         full_email = resp.json()
+                    # Log the full response for debugging
+                    logger.info("resend_api_full_email_response", email_id=email_id, full_email=full_email)
                     # full_email should have 'text', 'html', etc.
                     parsed_email["text_content"] = full_email.get("text")
                     parsed_email["html_content"] = full_email.get("html")
