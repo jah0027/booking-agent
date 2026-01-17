@@ -291,6 +291,33 @@ class BookingAgent:
             state["requested_dates"] = event_details["requested_dates"]
             state["intent"] = "availability_request"
             logger.info("venue_inquiry_complete_details", **event_details)
+
+            # Send confirmation email to requester
+            try:
+                confirmation_message = (
+                    f"Thank you for your inquiry! We have received all the necessary details for your event:\n"
+                    f"Event Type: {event_details['event_type']}\n"
+                    f"Expected Attendance: {event_details['expected_attendance']}\n"
+                    f"Payment Offer: {event_details['payment_offer']}\n"
+                    f"PA Available: {event_details['pa_available']}\n"
+                    f"Load-in Time: {event_details['load_in_time']}\n"
+                    f"Requested Dates: {event_details['requested_dates']}\n\n"
+                    "We will now check band availability and follow up with you soon."
+                )
+                await email_service.send_email(
+                    to=[state["sender_email"]],
+                    subject="Sick Day with Ferris - Inquiry Received",
+                    html=f"<p>{confirmation_message.replace(chr(10), '<br>')}</p>",
+                    text=confirmation_message,
+                    metadata={
+                        "conversation_id": state["conversation_id"],
+                        "message_type": "venue_inquiry_confirmation"
+                    }
+                )
+                logger.info("venue_inquiry_confirmation_sent", to=state["sender_email"], conversation_id=state["conversation_id"])
+            except Exception as e:
+                logger.error("venue_inquiry_confirmation_failed", error=str(e), to=state["sender_email"], conversation_id=state["conversation_id"])
+
             return state
         else:
             follow_up = "To proceed, could you please provide the following details: " + ", ".join(missing_details) + "."
