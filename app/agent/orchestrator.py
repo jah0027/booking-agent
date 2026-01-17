@@ -466,6 +466,7 @@ class BookingAgent:
                         content=message.content,
                         role="user"
                     )
+                    
             
             logger.info("Saved messages to database", conversation_id=state["conversation_id"])
         
