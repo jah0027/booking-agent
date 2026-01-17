@@ -35,6 +35,7 @@ async def email_webhook(request: Request, svix_signature: str = Header(None, ali
 
         # Parse and process the inbound email
         parsed_email = email_service.process_inbound_webhook(webhook_payload)
+        logger.info("parsed_email_debug", parsed_email=parsed_email)
 
         # If inbound email, fetch the body using the Resend Retrieve Received Email API
         if parsed_email.get("event_type") == "email_received":
