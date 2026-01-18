@@ -587,7 +587,19 @@ class BookingAgent:
                 logger.error("Failed to fetch previous messages", error=str(e))
                 previous_messages = []
         # Add the new incoming message
-        all_messages = previous_messages + [HumanMessage(content=message_content)]
+        # Attach message_id and subject if available (for threading)
+        human_message_kwargs = {}
+        if "message_id" in locals() or "message_id" in globals():
+            human_message_kwargs["message_id"] = locals().get("message_id") or globals().get("message_id")
+        if "subject" in locals() or "subject" in globals():
+            human_message_kwargs["subject"] = locals().get("subject") or globals().get("subject")
+        # If message_id and subject are in message_content (parsed_email), extract and attach
+        if isinstance(message_content, dict):
+            if "message_id" in message_content:
+                human_message_kwargs["message_id"] = message_content["message_id"]
+            if "subject" in message_content:
+                human_message_kwargs["subject"] = message_content["subject"]
+        all_messages = previous_messages + [HumanMessage(content=message_content, **human_message_kwargs)]
         # Initialize state
         initial_state: AgentState = {
             "messages": all_messages,
@@ -599,7 +611,9 @@ class BookingAgent:
             "booking_id": None,
             "booking_constraints": [],
             "requires_human_approval": False,
-            "next_action": None
+            "next_action": None,
+            "original_message_id": human_message_kwargs.get("message_id"),
+            "original_subject": human_message_kwargs.get("subject")
         }
         # Run through the graph
         final_state = await self.graph.ainvoke(initial_state)
