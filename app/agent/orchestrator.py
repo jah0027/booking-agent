@@ -300,10 +300,17 @@ class BookingAgent:
                 references = None
                 # Search for the last HumanMessage with a message_id in state["messages"]
                 for msg in reversed(state["messages"]):
-                    if isinstance(msg, HumanMessage) and hasattr(msg, "message_id") and msg.message_id:
-                        original_message_id = msg.message_id
-                        references = msg.message_id
-                        break
+                    if isinstance(msg, HumanMessage):
+                        # Try to get message_id from the message itself
+                        msg_id = getattr(msg, "message_id", None)
+                        if msg_id:
+                            original_message_id = msg_id
+                            references = msg_id
+                            break
+                # Fallback: try to get message_id from the parsed_email or state if available
+                if not original_message_id:
+                    original_message_id = state.get("original_message_id") or state.get("message_id")
+                    references = original_message_id
 
                 enthusiastic_intro = (
                     "🎉 Thank you so much for reaching out to book Sick Day with Ferris! We're thrilled about the possibility of playing at your event. "
