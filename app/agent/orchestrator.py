@@ -293,16 +293,32 @@ class BookingAgent:
             logger.info("venue_inquiry_complete_details", **event_details)
 
             # Send confirmation email to requester
+
             try:
+                # Find the original message ID if available
+                original_message_id = None
+                references = None
+                # Search for the last HumanMessage with a message_id in state["messages"]
+                for msg in reversed(state["messages"]):
+                    if isinstance(msg, HumanMessage) and hasattr(msg, "message_id") and msg.message_id:
+                        original_message_id = msg.message_id
+                        references = msg.message_id
+                        break
+
+                enthusiastic_intro = (
+                    "🎉 Thank you so much for reaching out to book Sick Day with Ferris! We're thrilled about the possibility of playing at your event. "
+                    "Here's a quick summary of what we've received from you so far:"
+                )
                 confirmation_message = (
-                    f"Thank you for your inquiry! We have received all the necessary details for your event:\n"
+                    f"{enthusiastic_intro}\n\n"
                     f"Event Type: {event_details['event_type']}\n"
                     f"Expected Attendance: {event_details['expected_attendance']}\n"
                     f"Payment Offer: {event_details['payment_offer']}\n"
                     f"PA Available: {event_details['pa_available']}\n"
                     f"Load-in Time: {event_details['load_in_time']}\n"
                     f"Requested Dates: {event_details['requested_dates']}\n\n"
-                    "We will now check band availability and follow up with you soon."
+                    "We'll now check the band's availability and get back to you as soon as possible. If you have any more details or questions, just reply to this email!\n\n"
+                    "Thanks again for considering us – we can't wait to (hopefully) rock your event!"
                 )
                 await email_service.send_email(
                     to=[state["sender_email"]],
@@ -312,9 +328,11 @@ class BookingAgent:
                     metadata={
                         "conversation_id": state["conversation_id"],
                         "message_type": "venue_inquiry_confirmation"
-                    }
+                    },
+                    in_reply_to=original_message_id,
+                    references=references
                 )
-                logger.info("venue_inquiry_confirmation_sent", to=state["sender_email"], conversation_id=state["conversation_id"])
+                logger.info("venue_inquiry_confirmation_sent", to=state["sender_email"], conversation_id=state["conversation_id"], in_reply_to=original_message_id)
             except Exception as e:
                 logger.error("venue_inquiry_confirmation_failed", error=str(e), to=state["sender_email"], conversation_id=state["conversation_id"])
 
