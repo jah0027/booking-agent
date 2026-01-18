@@ -327,9 +327,20 @@ class BookingAgent:
                     "We'll now check the band's availability and get back to you as soon as possible. If you have any more details or questions, just reply to this email!\n\n"
                     "Thanks again for considering us – we can't wait to (hopefully) rock your event!"
                 )
+                # Use the original subject for threading
+                original_subject = None
+                for msg in reversed(state["messages"]):
+                    if isinstance(msg, HumanMessage):
+                        original_subject = getattr(msg, "subject", None)
+                        if original_subject:
+                            break
+                # Fallback: try to get subject from state if available
+                if not original_subject:
+                    original_subject = state.get("original_subject") or state.get("subject") or "Booking Inquiry"
+
                 await email_service.send_email(
                     to=[state["sender_email"]],
-                    subject="Sick Day with Ferris - Inquiry Received",
+                    subject=original_subject,
                     html=f"<p>{confirmation_message.replace(chr(10), '<br>')}</p>",
                     text=confirmation_message,
                     metadata={
